@@ -4,112 +4,20 @@ echo "controller started" > ./Logs/controller_log.txt
 hostGroup="koala"
 hostMaxNum=22
 
-startFrame=0
-endFrame=1
-numMachines=0
-blendFile=""
-preCommand=""
-postCommand=""
-blenderArgs=""
-
 echoAndLog (){
 	echo $1
 	echo $1 >> ./Logs/controller_log.txt
 }
 
-usage(){
-	echo "Usage: controller.sh <numMachines> <blendfile> [OPTION]..."
-	echo "Distribute a blender render job across multiple hosts"
-	echo
-	echo "  -pre		a quote enclosed command to run before the render is distributed"
-	echo "  -e, -end	the frame to render to"
-	echo "  -s, -start	the frame start rendering from"
-	echo "  -h, -help	display this help and exit"
-	exit 0
-}
-
-#Print Usage ans exit if there are no arguments
-if [ $# -eq 0 ]; then
-	usage
-fi
-
-#Injest commandline arguments
-while [ $# -gt 0 ]; do
-	case "$1" in
-		-h|-help|-?)
-			usage $0
-			exit 0
-			;;
-
-		-n|-num)
-			shift
-			#Check to make sure there are enough host to meet the request
-			if [[ $1 -gt $hostMaxNum ]]; then
-				echoAndLog "Host group \"$hostGroup\" only has $hostMaxNum hosts. $1 hosts requested."
-			else
-				numMachines=$1
-			fi
-			shift
-			;;
-
-		-b|-blend)
-			shift
-			blendFile="$1"
-			shift
-			;;
-
-		-a|-arg*)
-			shift
-			blenderArgs="$1"
-			shift
-			;;
-
-		-s|-start)
-			shift
-			startFrame=$1
-			shift
-			;;
-
-		-e|-end)
-			shift
-			endFrame=$1
-			shift
-			;;
-
-		-pre)
-			shift
-			preCommand="$1"
-			shift
-			;;
-
-		-post)
-			shift
-			postCommand="$1"
-			shift
-			;;
-
-		*)
-			usage
-			break
-			;;
-
-
-	esac
-done
-
-
-
-
-
-# remnants of old code
-if false; then
-
-
+#TODO incorporate python file to automatically get the number of frames from the scene.
+#  ~/Software/blender-2.79-linux-glibc219-x86_64/2.79/scripts/modules/blend_render_info.py
 
 
 #Argument Check
 if [ "$1" = "help" ] || [ "$#" -lt 2 ]; then
-	usage
+	echo "Usage:"
+	echo "$0 <numMachines> <blendfile> [arguments] [pre-command] [post-command] [-s startframe] [-e endframe]"
+	echo
 
 else
 	#pre-command
@@ -120,7 +28,11 @@ else
 	#Clear old logs
 	rm -f Logs/*
 
-
+	#Check to make sure there are enough host to meet the request
+	if [[ $1 -gt $hostMaxNum ]]; then
+			echoAndLog "Host group \"$hostGroup\" only has $hostMaxNum hosts. $1 hosts requested."
+			exit 1
+	fi
 
 	#if frames are given, use that instead of using the scene's data
 	if [ -z $3 ]; then
@@ -151,6 +63,4 @@ else
 	if [ "$6" != "" ]; then
 		sh "$6"
 	fi
-fi
-
 fi
