@@ -4,6 +4,8 @@ echo "controller started" > ./Logs/controller_log.txt
 hostGroup="koala"
 hostMaxNum=22
 
+blenderLoc="~/Software/blender-2.79/blender"
+
 startFrame=0
 endFrame=1
 numMachines=0
@@ -12,23 +14,32 @@ preCommand=""
 postCommand=""
 blenderArgs=""
 
+#set to 1 if specified in arguments
+startDefined=0
+endDefined=0
+
+
 echoAndLog (){
 	echo $1
 	echo $1 >> ./Logs/controller_log.txt
 }
 
 usage(){
-	echo "Usage: controller.sh <numMachines> <blendfile> [OPTION]..."
+	echo "Usage: controller.sh <-n numMachines> <-b blendfile> [OPTION]..."
 	echo "Distribute a blender render job across multiple hosts"
 	echo
 	echo "  -pre		a quote enclosed command to run before the render is distributed"
-	echo "  -e, -end	the frame to render to"
+	echo "  -post		a quote enclosed command to run after the render is distributed"
 	echo "  -s, -start	the frame start rendering from"
+	echo "  -e, -end	the frame to render to"
+	echo "  -a, -args 	quote enclosed additional arguments to pass to blender"
+	echo "  -hosts 	the prefix for the host (default is ${hostGroup})"
+	echo "  -host-max	the maximum number of hosts for the group of hosts (default is ${hostMaxNum})"
 	echo "  -h, -help	display this help and exit"
 	exit 0
 }
 
-#Print Usage ans exit if there are no arguments
+#Print Usage and exit if there are no arguments
 if [ $# -eq 0 ]; then
 	usage
 fi
@@ -36,9 +47,8 @@ fi
 #Injest commandline arguments
 while [ $# -gt 0 ]; do
 	case "$1" in
-		-h|-help|-?)
-			usage $0
-			exit 0
+		-h|-help)
+			usage
 			;;
 
 		-n|-num)
@@ -67,6 +77,7 @@ while [ $# -gt 0 ]; do
 		-s|-start)
 			shift
 			startFrame=$1
+			startDefined=1
 			shift
 			;;
 
@@ -74,6 +85,7 @@ while [ $# -gt 0 ]; do
 			shift
 			endFrame=$1
 			shift
+			endDefined=1
 			;;
 
 		-pre)
@@ -88,8 +100,20 @@ while [ $# -gt 0 ]; do
 			shift
 			;;
 
+		-hosts)
+			shift
+			hostGroup="$1"
+			shift
+			;;
+
+		-host-max)
+			shift
+			hostMaxNum="$1"
+			shift
+			;;
+
+
 		*)
-			usage
 			break
 			;;
 
@@ -97,15 +121,42 @@ while [ $# -gt 0 ]; do
 	esac
 done
 
+#Validate required Arguments
+if [ $numMachines -lt 1 ] && [ -f $blendFile ]; then
+	echo "Number of machines and blend file must be specified"
+	echo ""
+	usage
+fi
+
+#pre-command
+if [ ! -z "$preCommand" ]; then
+	$preCommand
+fi
+
+#===Start Main functions===#
+
+#Clear old logs
+rm -f Logs/*
+
+#Get frames from blend files if not specified
+if [ $startDefined -eq 0 ]; then
+	read startFrame <<< $(( "${blenderLoc} -b -P ./Utilities/getStartFrame.py" ))
+fi
+
+if [ $endDefined -eq 0 ]; then
+	read endFrame <<< $(( "${blenderLoc} -b -P ./Utilities/getEndFrame.py" ))
+fi
+
+echo $startFrame
+echo $endFrame
+
+
 
 
 
 
 # remnants of old code
 if false; then
-
-
-
 
 #Argument Check
 if [ "$1" = "help" ] || [ "$#" -lt 2 ]; then
@@ -127,7 +178,7 @@ else
 		# sceneFrames=$3
 		sceneFrames=100
 	else
-		sceneFrames=$(("~/Software/blender-2.79-linux-glibc219-x86_64/2.79/blender -b -P ./Utilities/getFrames.py"))
+		sceneFrames=
 	fi
 
     framesPerMachine=$(($sceneFrames / $1))
