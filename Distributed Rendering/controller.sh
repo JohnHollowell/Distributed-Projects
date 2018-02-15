@@ -5,9 +5,11 @@ hostGroup="koala"
 hostMaxNum=22
 
 blenderLoc="~/Software/blender-2.79/blender"
+localDir="~/Development/Distributed-Projects/Distributed\ Rendering"
 
 startFrame=0
 endFrame=1
+totalFrames=2
 numMachines=0
 blendFile=""
 preCommand=""
@@ -140,68 +142,61 @@ rm -f Logs/*
 
 #Get frames from blend files if not specified
 if [ $startDefined -eq 0 ]; then
-	read startFrame <<< $(( "${blenderLoc} -b -P ./Utilities/getStartFrame.py" ))
+	eval ${blenderLoc} -b "${blendFile} -P ./Utilities/getStartFrame.py" > /dev/null
+	startFrame=$( cat ./Utilities/startFrame.txt )
 fi
 
 if [ $endDefined -eq 0 ]; then
-	read endFrame <<< $(( "${blenderLoc} -b -P ./Utilities/getEndFrame.py" ))
+	eval ${blenderLoc} -b "${blendFile}" -P "./Utilities/getEndFrame.py" > /dev/null
+	endFrame=$( cat ./Utilities/endFrame.txt )
 fi
 
-echo $startFrame
-echo $endFrame
+totalFrames=$(( (endFrame-startFrame)+1 ))
+framesPerMachine=$(( $totalFrames/($numMachines) ))
+lastBlock=$(( $totalFrames-($framesPerMachine*($numMachines)) ))
+
+#DEV
+echo "start:			$startFrame"
+echo "end:			$endFrame"
+echo "totalFrames:		$totalFrames"
+echo "framesPerMachine:	$framesPerMachine"
+echo "last block:		$lastBlock"
 
 
 
+#Main loop starting jobs on hosts
+for hostNum in $( seq 1 $numMachines ); do
 
+ #frame range setup for each host
+	#if it is the last machine, request the remainder of frames
+	if [ $hostNum -eq $numMachines ]; then
+		startFrame_host=$(( (($hostNum-1)*$framesPerMachine) + $startFrame ))
+		endFrame_host=$(( ($hostNum*$framesPerMachine) + $startFrame + $lastBlock - 1 ))
 
-
-# remnants of old code
-if false; then
-
-#Argument Check
-if [ "$1" = "help" ] || [ "$#" -lt 2 ]; then
-	usage
-
-else
-	#pre-command
-	if [ "$5" != "" ]; then
-		sh "$5"
-	fi
-
-	#Clear old logs
-	rm -f Logs/*
-
-
-
-	#if frames are given, use that instead of using the scene's data
-	if [ -z $3 ]; then
-		# sceneFrames=$3
-		sceneFrames=100
+	#prepare frame range for this host to proccess
 	else
-		sceneFrames=
+		startFrame_host=$(( (($hostNum-1)*$framesPerMachine) + $startFrame ))
+		endFrame_host=$(( ($hostNum*$framesPerMachine) + $startFrame - 1 ))
+
 	fi
 
-    framesPerMachine=$(($sceneFrames / $1))
-    echoAndLog "$framesPerMachine frames per machine"
+	#Host logic
+	echo "$hostGroup$hostNum	rendering frames ${startFrame_host}-${endFrame_host}"
 
-	#Main loop starting jobs on hosts
-	for i in `seq 1 $1`;
-    do
-        echoAndLog "Job started on $hostGroup$i"
-				logFile="./Logs/$hostGroup$(( $i ))_log.txt"
-        ssh -q $hostGroup$(( $i )) "cd ~/Development/Distributed\ Rendering && ./compute.sh $((((i-1)*framesPerMachine)+1)) $((i*framesPerMachine)) $4 >> $logFile" &
-        #ssh -q $hostGroup$(( $i )) "cd ~/Development/Distributed\ Rendering && echo "Established Connection. Running Command..." > $logFile && ./compute.sh $((((i-1)*framesPerMachine)+1)) $((i*framesPerMachine)) $4 >> $logFile" & > /dev/null
+	logFile="\"$(pwd)/Logs/$hostGroup$(( $hostNum ))_log.txt\""
 
-		#if connection to host failed, warn user
-		if [ $? -ne 0 ]; then
-			echoAndLog "	koala$i connection failed. Arguments were: $((((i-1)*framesPerMachine)+1)) $((i*framesPerMachine)) $4"
-		fi
-    done
+	#client commands
+	cdCommand="cd \"$(pwd)\""
+	logCommand="echo \"Rendering frames ${startFrame_host}-${endFrame_host} of ${blendFile}\" > ${logFile}"
+	renderCommand="./compute.sh \"${blendFile}\" ${startFrame_host} ${endFrame_host}"
 
-	#post-command
-	if [ "$6" != "" ]; then
-		sh "$6"
-	fi
-fi
 
-fi
+	ssh -q $hostGroup$hostNum "${cdCommand} && ${renderCommand} >> $logFile" &
+
+
+
+done
+
+
+#post-command
+#TODO

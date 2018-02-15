@@ -2,7 +2,7 @@
 
 #===Settings===#
 #the location of the blender executable
-blenderLoc="~/Software/blender-2.79-linux-glibc219-x86_64/blender"
+blenderLoc="~/Software/blender-2.79/blender"
 
 #The format of the output files ("filename" will be replaced with the name of the blend file)
 outputFormat="filename_render1_####"

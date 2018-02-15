@@ -9,12 +9,14 @@ Function:
 '''
 
 import sys, bpy
+import os
 
-outputFile = "startFrame.txt"
+#put the output in the same directory as this script
+outputFile = os.path.dirname(os.path.abspath(__file__)) + "/startFrame.txt"
 scene = bpy.context.scene
 
 f = open(outputFile, 'w')
-f.write(scene.frame_start)
+f.write(str(scene.frame_start))
 f.close()
 
-print(scene.frame_start)
+#print("Start Frame from File: " + str(scene.frame_start))
