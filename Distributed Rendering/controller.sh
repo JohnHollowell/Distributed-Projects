@@ -5,12 +5,13 @@ hostGroup="koala"
 hostMaxNum=22
 
 blenderLoc="~/Software/blender-2.79/blender"
-localDir="~/Development/Distributed-Projects/Distributed\ Rendering"
+completionLog="Logs/jobscompleted.txt"
 
+#variables filled by command line arguments
 startFrame=0
 endFrame=1
 totalFrames=2
-numMachines=0
+numHosts=0
 blendFile=""
 preCommand=""
 postCommand=""
@@ -23,15 +24,18 @@ endDefined=0
 
 echoAndLog (){
 	echo $1
-	echo $1 >> ./Logs/controller_log.txt
+	echo $1 >> "./Logs/controller_log.txt"
 }
 
 usage(){
-	echo "Usage: controller.sh <-n numMachines> <-b blendfile> [OPTION]..."
+	echo "Usage: controller.sh <-n numHosts> <-b blendfile> [OPTIONS]..."
 	echo "Distribute a blender render job across multiple hosts"
 	echo
+	echo "  -b, -blend	the location of the blend file to render"
 	echo "  -pre		a quote enclosed command to run before the render is distributed"
 	echo "  -post		a quote enclosed command to run after the render is distributed"
+	echo "  -comp		boolean of whether the frames should be compiled into a video automatically after rendering"
+	echo "  		(requires FFmpeg to compile frames)"
 	echo "  -s, -start	the frame start rendering from"
 	echo "  -e, -end	the frame to render to"
 	echo "  -a, -args 	quote enclosed additional arguments to pass to blender"
@@ -59,7 +63,7 @@ while [ $# -gt 0 ]; do
 			if [[ $1 -gt $hostMaxNum ]]; then
 				echoAndLog "Host group \"$hostGroup\" only has $hostMaxNum hosts. $1 hosts requested."
 			else
-				numMachines=$1
+				numHosts=$1
 			fi
 			shift
 			;;
@@ -124,8 +128,15 @@ while [ $# -gt 0 ]; do
 done
 
 #Validate required Arguments
-if [ $numMachines -lt 1 ] && [ -f $blendFile ]; then
-	echo "Number of machines and blend file must be specified"
+if [ $numHosts -lt 1 ] || [ "${blendFile}" == "" ]; then
+	echo "Number of machines and blend file must be specified (non zero/empty)"
+	echo ""
+	usage
+fi
+
+#Make sure blend file exists
+if [ ! -f "$blendFile" ]; then
+	echo "blend file \"$blendFile\" not found"
 	echo ""
 	usage
 fi
@@ -152,8 +163,8 @@ if [ $endDefined -eq 0 ]; then
 fi
 
 totalFrames=$(( (endFrame-startFrame)+1 ))
-framesPerMachine=$(( $totalFrames/($numMachines) ))
-lastBlock=$(( $totalFrames-($framesPerMachine*($numMachines)) ))
+framesPerMachine=$(( $totalFrames/($numHosts) ))
+lastBlock=$(( $totalFrames-($framesPerMachine*($numHosts)) ))
 
 #DEV
 echo "start:			$startFrame"
@@ -165,11 +176,11 @@ echo "last block:		$lastBlock"
 
 
 #Main loop starting jobs on hosts
-for hostNum in $( seq 1 $numMachines ); do
+for hostNum in $( seq 1 $numHosts ); do
 
  #frame range setup for each host
 	#if it is the last machine, request the remainder of frames
-	if [ $hostNum -eq $numMachines ]; then
+	if [ $hostNum -eq $numHosts ]; then
 		startFrame_host=$(( (($hostNum-1)*$framesPerMachine) + $startFrame ))
 		endFrame_host=$(( ($hostNum*$framesPerMachine) + $startFrame + $lastBlock - 1 ))
 
@@ -188,7 +199,7 @@ for hostNum in $( seq 1 $numMachines ); do
 	#client commands
 	cdCommand="cd \"$(pwd)\""
 	logCommand="echo \"Rendering frames ${startFrame_host}-${endFrame_host} of ${blendFile}\" > ${logFile}"
-	renderCommand="./compute.sh \"${blendFile}\" ${startFrame_host} ${endFrame_host}"
+	renderCommand="./compute.sh \"${blendFile}\" ${startFrame_host} ${endFrame_host} ${blenderArgs}"
 
 
 	ssh -q $hostGroup$hostNum "${cdCommand} && ${renderCommand} >> $logFile" &
@@ -199,4 +210,11 @@ done
 
 
 #post-command
-#TODO
+if [ -z "$postCommand" ]; then
+	while [ $(wc -l < "${completionLog}") -lt ${numHosts} ]; do
+		echo -ne "$(wc -l < "${completionLog}") / ${numHosts} Hosts Completed Rendering"'\r'
+		sleep 1
+	done
+
+	$("${postCommand}")
+fi
