@@ -6,4 +6,7 @@ usage(){
 
 cd "$1"
 dirName=$(basename "$1")
-ffmpeg -i $2 -framerate $3 ${dirName}.mp4
+
+echo pwd
+
+ffmpeg -hide_banner -i $2 -framerate $3 ${dirName}.mp4

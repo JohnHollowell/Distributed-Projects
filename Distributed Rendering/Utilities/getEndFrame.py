@@ -8,8 +8,7 @@ Function:
 
 '''
 
-import sys, bpy
-import os
+import os, sys, bpy
 
 #put the output in the same directory as this script
 outputFile = os.path.dirname(os.path.abspath(__file__)) + "/endFrame.txt"
