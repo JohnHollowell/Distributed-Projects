@@ -2,7 +2,7 @@
 echo "controller started" > ./Logs/controller_log.txt
 
 hostGroup="koala"
-hostMaxNum=22
+hostMaxNum=29
 
 blenderLoc="~/Software/blender-2.79/blender"
 
