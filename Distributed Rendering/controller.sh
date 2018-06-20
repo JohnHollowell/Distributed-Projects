@@ -32,6 +32,7 @@ usage(){
 	echo "Distribute a blender render job across multiple hosts"
 	echo
 	echo "  -b, -blend	the location of the blend file to render"
+	echo "  -n		the number of hosts to use to render"
 	echo "  -pre		a quote enclosed command to run before the render is distributed"
 	echo "  -post		a quote enclosed command to run after the render is distributed"
 	echo "  -comp		boolean of whether the frames should be compiled into a video automatically after rendering"
@@ -46,12 +47,12 @@ usage(){
 }
 
 #Print Usage and exit if there are no arguments
-if [ $# -eq 0 ]; then
+if [[ $# -eq 0 ]]; then
 	usage
 fi
 
 #Injest commandline arguments
-while [ $# -gt 0 ]; do
+while [[ $# -gt 0 ]]; do
 	case "$1" in
 		-h|-help)
 			usage
@@ -132,21 +133,21 @@ while [ $# -gt 0 ]; do
 done
 
 #Validate required Arguments
-if [ $numHosts -lt 1 ] || [ -z "${blendFile}" ]; then
+if [[ $numHosts -lt 1 ]] || [[ -z "${blendFile}" ]]; then
 	echo "Number of machines and blend file must be specified (non zero/empty)"
 	echo ""
 	usage
 fi
 
 #Make sure blend file exists
-if [ ! -f "$blendFile" ]; then
+if [[ ! -f "$blendFile" ]]; then
 	echo "blend file \"$blendFile\" not found"
 	echo ""
 	usage
 fi
 
 #pre-command
-if [ ! -z "$preCommand" ]; then
+if [[ ! -z "$preCommand" ]]; then
 	$preCommand
 fi
 
@@ -157,12 +158,12 @@ rm -f Logs/*
 
 echo "getting render settings from blend file..."
 #Get frames from blend files if not specified in arguments
-if [ $startDefined -eq 0 ]; then
+if [[ $startDefined -eq 0 ]]; then
 	eval "${blenderLoc} -b \"${blendFile}\" -P ./Utilities/getStartFrame.py" > /dev/null
 	startFrame=$( cat ./Utilities/startFrame.txt )
 fi
 
-if [ $endDefined -eq 0 ]; then
+if [[ $endDefined -eq 0 ]]; then
 	eval "${blenderLoc} -b \"${blendFile}\" -P ./Utilities/getEndFrame.py" > /dev/null
 	endFrame=$( cat ./Utilities/endFrame.txt )
 fi
@@ -184,7 +185,7 @@ for hostNum in $( seq 1 $numHosts ); do
 
  	#frame range setup for each host
 	#if it is the last machine, request the remainder of frames
-	if [ $hostNum -eq $numHosts ]; then
+	if [[ $hostNum -eq $numHosts ]]; then
 		startFrame_host=$(( (($hostNum-1)*$framesPerMachine) + $startFrame ))
 		endFrame_host=$(( ($hostNum*$framesPerMachine) + $startFrame + $lastBlock - 1 ))
 
@@ -214,15 +215,17 @@ done
 
 
 outputDir=""
-while [ -z "$outputDir" ]; do
-	outputDir=$( head -n 1 "Logs/ffmpegComponents.txt" )
-	ffmpegFormattedFilename=$( tail -n 1 "Logs/ffmpegComponents.txt" )
-	sleep .5
+while [[ -z "$outputDir" ]]; do
+	if [[  -f "Logs/ffmpegComponents.txt" ]]; then
+		outputDir=$( head -n 1 "Logs/ffmpegComponents.txt" )
+		ffmpegFormattedFilename=$( tail -n 1 "Logs/ffmpegComponents.txt" )
+		sleep .5
+	fi
 done
 
 #wait for hosts to complete rendering
 count=0
-while [ $count -lt ${totalFrames} ]; do
+while [[ $count -lt ${totalFrames} ]]; do
 	count=$(ls -b "$outputDir" 2>/dev/null | wc -l )
 	echo -ne "${count} / ${totalFrames} Frames Rendered"'\r'
 	sleep .5
@@ -231,7 +234,7 @@ done
 echo "${count} / ${totalFrames} Frames Rendered"
 echo "All Hosts Finished Rendering"
 
-if [ $compileFrames -gt 0 ];then
+if [[ $compileFrames -gt 0 ]];then
 	eval "${blenderLoc} -b \"${blendFile}\" -P ./Utilities/getFramerate.py" > /dev/null
 	framerate=$( cat ./Utilities/framerate.txt )
 
@@ -241,6 +244,6 @@ if [ $compileFrames -gt 0 ];then
 fi
 
 #post-command
-if [ ! -z "$postCommand" ]; then
+if [[ ! -z "$postCommand" ]]; then
 	$postCommand
 fi

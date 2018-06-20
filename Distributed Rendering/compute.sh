@@ -5,7 +5,7 @@
 blenderLoc="~/Software/blender-2.79/blender"
 
 #The render Engine to use  <BLENDER_RENDER|BLENDER_GAME|CYCLES>
-engine="BLENDER_RENDER"
+#engine="BLENDER_RENDER"
 
 #Number of threads to use (0 for all)
 threadCount=0
@@ -14,8 +14,8 @@ threadCount=0
 allowPython="disable"
 
 #===OUTPUT===#
-# "filename" will be replaced with the name of the blend file; "rendername" will be replaced with the "render" and the render iteration number; "#" indicates a digit of the frame number
 
+# "filename" will be replaced with the name of the blend file; "rendername" will be replaced with the "render" and the render iteration number; "#" indicates a digit of the frame number
 #The directory where output will be placed
 outputDir="Renders/filename/rendername/"
 
@@ -32,8 +32,6 @@ usage(){
 	echo "Usage: compute.sh <-b blendfile> <-s startframe> <-e endframe> [OPTIONS]..."
 	echo
 	echo "  -b, -blend	the location of the blend file to render"
-	echo "  -comp		boolean of whether the frames should be compiled into a video automatically after rendering"
-	echo "  		(requires FFmpeg to compile frames)"
 	echo "  -s, -start	the frame start rendering from"
 	echo "  -e, -end	the frame to render to"
 	echo "  -a, -args 	quote enclosed additional arguments to pass to blender"
@@ -48,7 +46,7 @@ blenderArgs=""
 
 
 #Injest commandline arguments
-while [ $# -gt 0 ]; do
+while [[ $# -gt 0 ]]; do
 	case "$1" in
 		-h|-help)
 			usage
@@ -80,12 +78,6 @@ while [ $# -gt 0 ]; do
 			endDefined=1
 			;;
 
-		-comp)
-			shift
-			compileFrames=$1
-			shift
-			;;
-
 		*)
 			break
 			;;
@@ -94,14 +86,14 @@ while [ $# -gt 0 ]; do
 done
 
 #check for all required arguments
-if [ -z "${blendFile}" ] || [ $startFrame -lt 0 ] || [ $endFrame -lt 0 ] ; then
+if [[ -z "${blendFile}" ]] || [[ $startFrame -lt 0 ]] || [[ $endFrame -lt 0 ]] ; then
 	usage
 fi
 
 
 # Init dynamic variables
 host=$(hostname)
-hostNum=$( echo "$host" | sed 's/[^0-9]//g')
+hostNum=$( echo "$host" | sed 's/[^0-9]//g' )
 blendFilename="$(basename "$blendFile")"
 
 # Do Directory Replacements
@@ -123,7 +115,7 @@ echo "$outputFullPath"
 echo ""
 
 #only write ffmpeg needed values if this is the first host
-if [ $hostNum -eq 1 ];then
+if [[ $hostNum -eq 1 ]];then
 	case "$fileFormat" in
 		*TGA)
 			fileExtension="tga"
