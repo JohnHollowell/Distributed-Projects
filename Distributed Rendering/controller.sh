@@ -1,8 +1,8 @@
 #!/bin/bash
 echo "controller started" > ./Logs/controller_log.txt
 
-hostGroup="koala"
-hostMaxNum=29
+hostGroup="babbage"
+hostMaxNum=33
 
 blenderLoc="~/Software/blender-2.79/blender"
 
@@ -156,7 +156,7 @@ fi
 rm -f Logs/*
 
 
-echo "getting render settings from blend file..."
+echoAndLog "getting render settings from blend file..."
 #Get frames from blend files if not specified in arguments
 if [[ $startDefined -eq 0 ]]; then
 	eval "${blenderLoc} -b \"${blendFile}\" -P ./Utilities/getStartFrame.py" > /dev/null
@@ -173,12 +173,13 @@ framesPerMachine=$(( $totalFrames/($numHosts) ))
 lastBlock=$(( $totalFrames-($framesPerMachine*($numHosts)) ))
 
 #output values for the user to check
-echo "start:			$startFrame"
-echo "end:			$endFrame"
-echo "totalFrames:		$totalFrames"
-echo "frames per machine:	$framesPerMachine"
-echo "last machine frames:	$lastBlock"
+echoAndLog "start:			$startFrame"
+echoAndLog "end:			$endFrame"
+echoAndLog "totalFrames:		$totalFrames"
+echoAndLog "frames per machine:	$framesPerMachine"
+echoAndLog "last machine frames:	$lastBlock"
 
+startTime=`date +%s`
 
 #Main loop starting jobs on hosts
 for hostNum in $( seq 1 $numHosts ); do
@@ -196,8 +197,7 @@ for hostNum in $( seq 1 $numHosts ); do
 
 	fi
 
-	#Host logic
-	echo "$hostGroup$hostNum	rendering frames ${startFrame_host}-${endFrame_host}"
+	echoAndLog "$hostGroup$hostNum	rendering frames ${startFrame_host}-${endFrame_host}"
 
 	logFile="\"$(pwd)/Logs/$hostGroup$(( $hostNum ))_log.txt\""
 
@@ -206,20 +206,18 @@ for hostNum in $( seq 1 $numHosts ); do
 	logCommand="echo \"Rendering frames ${startFrame_host}-${endFrame_host} of ${blendFile}\" > ${logFile}"
 	renderCommand="./compute.sh -b \"${blendFile}\" -s ${startFrame_host} -e ${endFrame_host} -a ${blenderArgs}"
 
-
 	ssh -q $hostGroup$hostNum "${cdCommand} && ${renderCommand} >> $logFile" &
-
-
 
 done
 
 
+# Wait for information needed for compiling frames
 outputDir=""
 while [[ -z "$outputDir" ]]; do
 	if [[  -f "Logs/ffmpegComponents.txt" ]]; then
 		outputDir=$( head -n 1 "Logs/ffmpegComponents.txt" )
 		ffmpegFormattedFilename=$( tail -n 1 "Logs/ffmpegComponents.txt" )
-		sleep .5
+		sleep .1
 	fi
 done
 
@@ -231,17 +229,26 @@ while [[ $count -lt ${totalFrames} ]]; do
 	sleep .5
 done
 
-echo "${count} / ${totalFrames} Frames Rendered"
-echo "All Hosts Finished Rendering"
+echoAndLog "${count} / ${totalFrames} Frames Rendered"
+echoAndLog "All Hosts Finished Rendering"
+renderTime=`date +%s`
+
+# Wait for all files to sync across storage
+sleep 1
 
 if [[ $compileFrames -gt 0 ]];then
 	eval "${blenderLoc} -b \"${blendFile}\" -P ./Utilities/getFramerate.py" > /dev/null
 	framerate=$( cat ./Utilities/framerate.txt )
 
-	echo ""
-	echo "Compiling frames into video"
+	echoAndLog ""
+	echoAndLog "Compiling frames into video"
 	eval "Utilities/ffmpeg_compileFrames.sh \"${outputDir}\" \"${ffmpegFormattedFilename}\" ${framerate}" > /dev/null
 fi
+
+endTime=`date +%s`
+echoAndLog "Total Time: $((endTime-startTime-1))"
+echoAndLog "		Render Time:  $((renderTime-startTime))"
+echoAndLog "		Compile Time: $((endTime-renderTime-1))"
 
 #post-command
 if [[ ! -z "$postCommand" ]]; then

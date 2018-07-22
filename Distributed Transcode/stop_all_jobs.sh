@@ -1,6 +1,6 @@
 
-hostGroup="koala"
-hostMaxNum=22
+hostGroup="babbage"
+hostMaxNum=33
 
 if [[ ! -z $1 ]]; then
 	hostGroup="$1"

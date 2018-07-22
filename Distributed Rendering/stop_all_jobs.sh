@@ -1,6 +1,6 @@
 
-hostGroup="koala"
-hostMaxNum=22
+hostGroup="babbage"
+hostMaxNum=33
 
 if [[ ! -z $1 ]]; then
 	hostGroup="$1"
@@ -15,4 +15,4 @@ for i in `seq 1 $hostMaxNum`; do
 	ssh -q $hostGroup$(( $i )) "killall -u "$USER" > /dev/null"  2> /dev/null &
 done
 
-echo "Forced all jobs to exit"
+echo "Forced all jobs to exit on all $hostMaxNum $hostGroup"

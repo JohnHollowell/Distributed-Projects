@@ -1,6 +1,6 @@
 
-hostGroup="koala"
-hostMaxNum=29
+hostGroup="babbage"
+hostMaxNum=33
 fileCount=0
 hostIndex=1
 fileIndex=0

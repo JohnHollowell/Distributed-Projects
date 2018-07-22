@@ -1,6 +1,6 @@
 
-hostGroup="koala"
-hostMaxNum=22
+hostGroup="babbage"
+hostMaxNum=33
 
 
 for i in `seq 1 $hostMaxNum`; do
