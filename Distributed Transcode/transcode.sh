@@ -56,6 +56,17 @@ endTime=`date +%s`
 echo "All jobs completed. Time: $((endTime-startTime)) seconds"
 
 
+# Print out the size difference between the start and end files
+fromFiles=$(find videos/. -type f -name "*$1")
+toFiles=$(find videos/. -type f -name "*$2")
+
+fromSize=$(du -cb $fromFiles | tail -1 | cut -f 1)
+toSize=$(du -cb $toFiles | tail -1 | cut -f 1)
+
+echo -ne "Size ratio: "
+echo "scale=5 ; ${fromSize} / ${toSize}" | bc
+
+
 read -t 60 -n 1 -p "Remove originals [Y/n]? " response
 response=${response,,}
 response=${response:0:1}
@@ -67,3 +78,5 @@ if [ -z "$response" ] || [ "$response" == "y" ]; then
 	echo
 	echo "Removed original files"
 fi
+
+echo ""
