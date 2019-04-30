@@ -16,9 +16,8 @@ if [ $# -lt 2 ]; then
 	usage
 fi
 
-#reset log file
-rm log.txt
-touch log.txt
+#reset log files
+rm -f logs/*
 
 #rename videos and put in an array
 for f in videos/*$1; do
@@ -33,7 +32,7 @@ startTime=`date +%s`
 #loop through all the files and give to the hosts
 while [ ${fileIndex} -lt ${#files[@]} ]; do
 	filename=${files[fileIndex]}
-	ssh -q $hostGroup$(( $hostIndex )) "cd \"$(pwd)\" && ffmpeg -hide_banner -loglevel panic -y -i \"$filename\" $3 \"${filename/$1$transcodingExtension/$2}\" && echo \"$hostGroup$(( $hostIndex ))	Completed ${filename/$1$transcodingExtension/$2}\">>log.txt" &
+	ssh -q $hostGroup$(( $hostIndex )) "cd \"$(pwd)\" && ffmpeg -hide_banner -loglevel panic -y -i \"$filename\" $3 \"${filename/$1$transcodingExtension/$2}\" && echo \"$hostGroup$(( $hostIndex ))	Completed ${filename/$1$transcodingExtension/$2}\">| logs/$hostGroup$(( $hostIndex )).txt" &
 	echo "Host: $hostGroup$(( $hostIndex ))	File Index: ${fileIndex}	   File:${files[fileIndex]}"
 	((hostIndex++))
 	((fileIndex++))
@@ -46,8 +45,8 @@ done
 echo "waiting for jobs to complete..."
 
 #Display count of completed jobs until all completed
-while [ $(wc -l < log.txt) -lt ${fileCount} ]; do
-	echo -ne "$(wc -l < log.txt) / ${fileCount} Jobs Completed"'\r'
+while [ $(( $(ls -l logs/ | wc -l) - 1)) -lt ${fileCount} ]; do
+	echo -ne "$(( $(ls -l logs/ | wc -l) - 1)) / ${fileCount} Jobs Completed"'\r'
 	sleep .5
 done
 
@@ -60,8 +59,9 @@ echo "All jobs completed. Time: $((endTime-startTime)) seconds"
 fromFiles=$(find videos/. -type f -name "*$1")
 toFiles=$(find videos/. -type f -name "*$2")
 
-fromSize=$(du -cb $fromFiles | tail -1 | cut -f 1)
-toSize=$(du -cb $toFiles | tail -1 | cut -f 1)
+#FIXME errors out with filenames/paths with spaces
+fromSize=$(du -cb videos/*$transcodingExtension | tail -1 | cut -f 1)
+toSize=$(du -cb videos/*$2 | tail -1 | cut -f 1)
 
 echo -ne "Size ratio: "
 echo "scale=5 ; ${fromSize} / ${toSize}" | bc
@@ -71,6 +71,7 @@ read -t 60 -n 1 -p "Remove originals [Y/n]? " response
 response=${response,,}
 response=${response:0:1}
 
+#if 'y' or enter (default response)
 if [ -z "$response" ] || [ "$response" == "y" ]; then
 	for f in "${files[@]}"; do
 		rm "$f"
